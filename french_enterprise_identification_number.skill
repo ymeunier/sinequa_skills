@@ -1,0 +1,64 @@
+// Cette skill permet de récupérer les numéros de SIRET 
+// et de fournir les numéros de SIREN voir de TVA Communautaire
+
+// Normalement la forme 1 n'est pas nécessaire ... a valider
+SIRET1: /[0-9]{14}/=>"$0";
+#validate SIRET1 (lang:"fr", text:"contrat <mustpass Name='SIRET1' Norm='70142121200018'>70142121200018</mustpass>");
+
+
+SIRET2: /[0-9]{3}\s?[0-9]{3}\s?[0-9]{3}\s?[0-9]{5}/=>"$0";
+#validate SIRET2 (lang:"fr", text:"contrat <mustpass Name='SIRET2' Norm='701 421 212 00018'>701 421 212 00018</mustpass>");
+
+//Le numéro SIRET est composé de 14 chiffres, dont un chiffre de contrôle (le dernier) qui permet de vérifier la validité du numéro de SIRET (SIREN + NIC).
+//La clef de contrôle utilisée pour vérifier l'exactitude d'un identifiant est une clé "1-2", suivant l'algorithme de Luhn.
+//Le principe est le suivant : on multiplie les chiffres de rang impair à partir de la droite par 1, ceux de rang pair par 2.
+//La somme des chiffres obtenus doit être congrue à zéro modulo 10, c'est-à-dire qu'elle doit être multiple de 10.
+// https://portal.hardis-group.com/doccenter/pages/viewpage.action?pageId=120357227#:~:text=R%C3%A8gles%20de%20validation&text=Le%20principe%20est%20le%20suivant,doit%20%C3%AAtre%20multiple%20de%2010.
+
+SIRETS: (SIRET1 OR SIRET2)
+{
+    if (!self.IsEmpty) {
+        Sys.Log("SIRET Verification procedure : START");
+        string siret = self.Surface;
+        // Supprime les espaces et caractères non numériques
+        Sys.Log("- SIRET before Trimming : " + siret);
+        siret = siret.Replace(" ", "").Trim();
+        Sys.Log("- SIRET after Trimming : " + siret);
+        // Vérifie que le SIRET a 14 chiffres
+        if (siret.Length != 14)
+            self.Reject();
+
+        Sys.Log("- SIRET have a good size ! : " + siret);    
+        // Applique l'algorithme de Luhn pour vérifier la clé de contrôle
+        Sys.Log("- SIRET Computing : " + siret);
+        int sum = 0;
+        for (int i = 0; i < 14; i++)
+        {
+            int digit = int.Parse(siret[i].ToString());
+            if (i % 2 == 0)
+                digit *= 2;
+            sum += digit > 9 ? digit - 9 : digit;
+        }
+
+        if  (sum % 10 == 0)
+        {
+            Sys.Log("- SIRET is valid : " + siret);
+            
+        } else 
+        {
+            self.Reject();
+            Sys.Log("- SIRET is not valid ! : " + siret);
+        }
+    self.Norm=siret;
+    Sys.Log("SIRET Verification procedure : END");
+
+    string siren = siret.Substring(0, 9);
+    Sys.Log("SIREN : " + siren);
+    } 
+};
+
+#validate SIRETS_OK (lang:"fr", text:"numéro de SIRET <mustpass Name='SIRETS' Norm='21060088800015'>210 600 888 00015</mustpass>");
+#validate SIRETS_KO (lang:"fr", text:"numéro de SIRET <mustfail Name='SIRETS' Norm='75080608825341'>750 806 088 25341</mustfail>");
+
+
+#public SIRETS;
