@@ -1,2 +1,2 @@
 # sinequa_skills
-skills for Sinque
+skills for Sinequa
